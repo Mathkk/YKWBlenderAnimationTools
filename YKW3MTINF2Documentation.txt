@@ -3,52 +3,52 @@
 
 P10 and P80:
 A8 5A 6A 85 - T-pose
-4A 09 C3 43 - Idle
-44 6A 78 62 - Long idle
-A5 CF E5 80 - Talk
-B4 27 F7 FF - Walk
-54 43 28 60 - Run
+4A 09 C3 43 - Idle (stl)
+44 6A 78 62 - Long idle (idi)
+A5 CF E5 80 - Talk (tkl)
+B4 27 F7 FF - Walk (wkl)
+54 43 28 60 - Run (rnl)
 20 33 E6 11 -  ???
 
 P20:
 
-58 DF 5B 84 - Battle start animation
+58 DF 5B 84 - Battle start animation (sti)
 
-2F 60 5C C8 - Idle Animation
+2F 60 5C C8 - Idle Animation (stl)
 
-17 94 B0 2D - Long Idle Animation
+17 94 B0 2D - Long Idle Animation (idi)
 
-23 8F 2C 41 - Tired/Sleeping Animation
+23 8F 2C 41 - Tired/Sleeping Animation (trl)
 
-F8 E2 EE 80 - Loafing Animation
+F8 E2 EE 80 - Loafing Animation (lfl)
 
-7E 15 40 AB - Recovering Animation
+7E 15 40 AB - Recovering Animation (hpi)
 
-98 12 A9 9B - Attack Animation
+98 12 A9 9B - Attack Animation (ati)
 
-4D 03 C3 B7 - Magic/Inspirit Animation
+4D 03 C3 B7 - Magic/Inspirit Animation (wci)
 
-B1 01 4E 48 - Guard Animation
+B1 01 4E 48 - Guard Animation (grl)
 
-CD 2A A7 DA - Miss Animation
+CD 2A A7 DA - Miss Animation (adl)
 
-D6 D6 8B 14 - Damage Animation
+D6 D6 8B 14 - Damage Animation (dmi)
 
-B1 85 81 B5 - Death Animation
+B1 85 81 B5 - Death Animation (dei)
 
-A9 E0 BB 11 - Last Frame of Death Animation/Ascension
+A9 E0 BB 11 - Last Frame of Death Animation/Ascension (del)
 
-04 B7 C0 F9 - Charge Animation
+04 B7 C0 F9 - Charge Animation (pwl)
 
-54 53 5B 79 - Soultimate Start Animation
+54 53 5B 79 - Soultimate Start Animation (spi)
 
-0A 8E 77 DE - Soultimate animation
+0A 8E 77 DE - Soultimate animation (spo)
 
 P21:
 
-AB 00 7C 21 - Victory Dance 1 Start
+AB 00 7C 21 - Victory Dance 1 Start (wii)
 
-56 E4 4D EC - Victory Dance 1
+56 E4 4D EC - Victory Dance 1 (wil)
 
 11 51 75 B8 - Victory Dance 2 Start
 

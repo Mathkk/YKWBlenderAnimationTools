@@ -1,42 +1,56 @@
 import bpy
 
-# Set your frame range here
 start_frame = bpy.context.scene.frame_start
 end_frame = bpy.context.scene.frame_end
-step = 2  # Bake step size
+step = 2
 valid_frames = set(range(start_frame, end_frame + 1, step))
 
-# Iterate over all objects in the scene
-for obj in bpy.data.objects:
-    # Skip if no animation data
-    if not obj.animation_data or not obj.animation_data.action:
-        continue
+# Loop over all actions
+for action in bpy.data.actions:
+    linked = False
 
-    action = obj.animation_data.action
-    print(f"Baking object: {obj.name}, action: {action.name}")
+    for obj in bpy.data.objects:
+        if not obj.animation_data:
+            continue
 
-    # Make the object active and selected
-    bpy.context.view_layer.objects.active = obj
-    obj.select_set(True)
+        original_action = obj.animation_data.action
+        obj.animation_data.action = action
 
-    # Bake animation
-    bpy.ops.nla.bake(
-        frame_start=start_frame,
-        frame_end=end_frame,
-        only_selected=True,
-        visual_keying=True,
-        clear_constraints=False,
-        use_current_action=True,
-        bake_types={'POSE'} if obj.type == 'ARMATURE' else {'OBJECT'},
-        step=step
-    )
+        # Only process if action matches the object's rig (pose bones)
+        if not any(fcurve.data_path.startswith("pose") for fcurve in action.fcurves):
+            obj.animation_data.action = original_action
+            continue
 
-    # Remove non-stepped keyframes from the current action
-    for fcurve in action.fcurves:
-        keyframes_to_remove = [kp.co[0] for kp in fcurve.keyframe_points if int(kp.co[0]) not in valid_frames]
-        for frame in keyframes_to_remove:
-            fcurve.keyframe_points.remove(next(kp for kp in fcurve.keyframe_points if kp.co[0] == frame))
+        print(f"Baking: {action.name} on object: {obj.name}")
 
-    print(f"Baked and cleaned action: {action.name} for object: {obj.name}")
+        # Activate and select object
+        bpy.ops.object.select_all(action='DESELECT')
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
 
-print("All animations baked and cleaned.")
+        # Bake only the pose bones, avoid baking visual transforms
+        bpy.ops.nla.bake(
+            frame_start=start_frame,
+            frame_end=end_frame,
+            only_selected=True,
+            visual_keying=False,
+            clear_constraints=False,
+            use_current_action=True,
+            bake_types={'POSE'},
+            step=step
+        )
+
+        # Remove unwanted keyframes not on stepped frames
+        for fcurve in action.fcurves:
+            keyframes_to_remove = [kp.co[0] for kp in fcurve.keyframe_points if int(kp.co[0]) not in valid_frames]
+            for frame in keyframes_to_remove:
+                fcurve.keyframe_points.remove(next(kp for kp in fcurve.keyframe_points if kp.co[0] == frame))
+
+        obj.animation_data.action = original_action
+        linked = True
+        break
+
+    if not linked:
+        print(f"Skipped: {action.name} (no matching object found)")
+
+print("All actions baked and cleaned.")

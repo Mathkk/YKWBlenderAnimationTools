@@ -16,8 +16,8 @@ ACTION_HASH_NAMES = {
     "4A 09 C3 43": "Idle",
     "44 6A 78 62": "Long idle",
     "A5 CF E5 80": "Talk",
-    "B4 27 F7 FF": "Walk",
-    "54 43 28 60": "Run",
+    "B4 27 F7 FF": "Walk P10",
+    "54 43 28 60": "Run P10",
     "20 33 E6 11": "???",
     
     # YKW3 P20
@@ -49,8 +49,8 @@ ACTION_HASH_NAMES = {
     "13 10 3A 91": "Victory Dance 4",
 
     # Blasters P84
-    "C2 B2 3B F0": "Walk Animation",
-    "22 D6 E4 6F": "Run Animation",
+    "C2 B2 3B F0": "Walk",
+    "22 D6 E4 6F": "Run",
     "3C 9C 0F 4C": "Idle Animation",
     "B8 32 75 BC": "Long Idle Animation",
     "30 73 7F C5": "Tired/Sleeping Animation",

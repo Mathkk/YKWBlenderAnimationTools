@@ -54,11 +54,13 @@ for action in bpy.data.actions:
             step=step
         )
 
-        # Remove keyframes outside of step
+        # 🔹 Em vez de deletar keyframes fora do step,
+        # só garante que handles e frames fiquem consistentes
         for fcurve in action.fcurves:
-            keyframes_to_remove = [kp.co[0] for kp in fcurve.keyframe_points if int(kp.co[0]) not in valid_frames]
-            for frame in keyframes_to_remove:
-                fcurve.keyframe_points.remove(next(kp for kp in fcurve.keyframe_points if kp.co[0] == frame))
+            for kp in fcurve.keyframe_points:
+                kp.co.x = round(kp.co.x)  # só arredonda frame, não toca em valores Y
+                kp.handle_left.x = round(kp.handle_left.x)
+                kp.handle_right.x = round(kp.handle_right.x)
 
         # Ensure loop (skip if suffix matches no_loop_suffixes)
         if not any(action.name.lower().endswith(suffix) for suffix in no_loop_suffixes):
@@ -76,4 +78,4 @@ for action in bpy.data.actions:
     if not processed:
         print(f"Skipped: {action.name} (no suitable rig found)")
 
-print("✅ All actions baked, cleaned, and looped (except excluded suffixes).")
+print("✅ All actions baked and looped (without overwriting scaled values).")

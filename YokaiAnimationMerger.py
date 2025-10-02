@@ -1,6 +1,6 @@
 import bpy
 
-#Script by Math_kk | Discord: oisouomatho
+# Script by Math_kk | Discord: oisouomatho
 
 class MergeAnimationsPanel(bpy.types.Panel):
     bl_label = "Yo-kai Watch Animations Merger"
@@ -31,18 +31,28 @@ class MergeAnimationsOperator(bpy.types.Operator):
         for action_name in actions_to_merge:
             action = bpy.data.actions.get(action_name.strip())
             if action:
+                action_start = int(action.frame_range[0])
+                action_end = int(action.frame_range[1])
+                action_duration = action_end - action_start
+
                 for fcurve in action.fcurves:
-                    # Verifica se a F-Curve já existe
                     new_fcurve = merged_action.fcurves.find(fcurve.data_path, index=fcurve.array_index)
                     if not new_fcurve:
                         new_fcurve = merged_action.fcurves.new(data_path=fcurve.data_path, index=fcurve.array_index)
+
                     for keyframe in fcurve.keyframe_points:
-                        new_keyframe = new_fcurve.keyframe_points.insert(current_frame + keyframe.co[0], keyframe.co[1])
+                        # Ajusta o tempo do keyframe em relação ao novo ponto de início
+                        frame_offset = keyframe.co[0] - action_start
+                        new_frame = current_frame + frame_offset
+                        new_keyframe = new_fcurve.keyframe_points.insert(new_frame, keyframe.co[1])
                         new_keyframe.interpolation = keyframe.interpolation
+
                 start_frame = current_frame
-                end_frame = current_frame + action.frame_range[1] - action.frame_range[0]
-                log.append(f"{action_name}: Start Frame = {start_frame}, End Frame = {end_frame}")
-                current_frame = end_frame + 1
+                end_frame = current_frame + action_duration
+                log.append(f"{action_name.strip()}: Start Frame = {start_frame}, End Frame = {end_frame}")
+
+                # Avança para o próximo espaço disponível, pulando 1 frame
+                current_frame = end_frame + 2  # +1 para terminar, +1 para pular um frame
 
         bpy.context.object.animation_data.action = merged_action
 

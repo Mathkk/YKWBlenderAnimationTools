@@ -1,81 +1,144 @@
 import bpy
 
-step = 2
+def get_view3d_context():
+    for area in bpy.context.window.screen.areas:
+        if area.type == 'VIEW_3D':
+            for region in area.regions:
+                if region.type == 'WINDOW':
+                    return {
+                        'window': bpy.context.window,
+                        'screen': bpy.context.window.screen,
+                        'area': area,
+                        'region': region,
+                        'scene': bpy.context.scene,
+                        'blend_data': bpy.context.blend_data,
+                        'view_layer': bpy.context.view_layer,
+                    }
+    return None
 
-# Collect only objects with armature/rig
-rigs = [obj for obj in bpy.data.objects if obj.type == 'ARMATURE']
 
-# Suffixes that should not be looped
-no_loop_suffixes = ("_wii", "_sti", "_hpi", "_ati", "_wci", "_adl", "_dmi", "_dei", "_del", "_spi", "_spo")
-
-for action in bpy.data.actions:
-    # Get actual keyframe frames of this action
-    action_frames = [kp.co[0] for fcurve in action.fcurves for kp in fcurve.keyframe_points]
-    if not action_frames:
-        print(f"Skipped (no keyframes): {action.name}")
-        continue
-
-    start_frame = int(min(action_frames))
-    end_frame = int(max(action_frames))
+def clean_non_step_keyframes(action, step, start_frame, end_frame):
     valid_frames = set(range(start_frame, end_frame + 1, step))
+    for fcurve in action.fcurves:
+        to_remove = [i for i, kp in enumerate(fcurve.keyframe_points) if round(kp.co.x) not in valid_frames]
+        for i in reversed(to_remove):
+            fcurve.keyframe_points.remove(fcurve.keyframe_points[i])
+        for kp in fcurve.keyframe_points:
+            kp.co.x = round(kp.co.x)
+            kp.handle_left.x = round(kp.handle_left.x)
+            kp.handle_right.x = round(kp.handle_right.x)
 
-    processed = False
 
-    for obj in rigs:
-        if not obj.animation_data:
-            continue
+def copy_fcurves(source_action, target_action):
+    """Copy all FCurve data from source to target (overwrite)."""
+    # Remove all existing FCurves from target
+    for fcurve in list(target_action.fcurves):
+        target_action.fcurves.remove(fcurve)
 
-        # Force the current action on this rig
-        original_action = obj.animation_data.action
-        obj.animation_data.action = action
+    for src_fcurve in source_action.fcurves:
+        tgt_fcurve = target_action.fcurves.new(
+            data_path=src_fcurve.data_path,
+            index=src_fcurve.array_index
+        )
+        for kp in src_fcurve.keyframe_points:
+            new_kp = tgt_fcurve.keyframe_points.insert(frame=kp.co.x, value=kp.co.y)
+            new_kp.interpolation = kp.interpolation
+            new_kp.handle_left_type = kp.handle_left_type
+            new_kp.handle_right_type = kp.handle_right_type
+            new_kp.handle_left = kp.handle_left
+            new_kp.handle_right = kp.handle_right
 
-        # Only process if it has pose curves
-        if not any(fcurve.data_path.startswith("pose") for fcurve in action.fcurves):
-            obj.animation_data.action = original_action
-            continue
 
-        print(f"Baking: {action.name} on {obj.name} (frames {start_frame}-{end_frame})")
+def bake_action_in_place(action, rig, step, bake_ctx):
+    frames = [kp.co[0] for fcurve in action.fcurves for kp in fcurve.keyframe_points]
+    if not frames:
+        print(f"⏩ Skipping (no keyframes): {action.name}")
+        return
 
-        # Select only the current object
-        for o in bpy.context.selected_objects:
-            o.select_set(False)
-        obj.select_set(True)
-        bpy.context.view_layer.objects.active = obj
+    start_frame = int(min(frames))
+    raw_end = int(max(frames))
+    end_frame = raw_end + (step - raw_end % step) if raw_end % step != 0 else raw_end
 
-        # Perform the bake
+    if not any(fcurve.data_path.startswith("pose") for fcurve in action.fcurves):
+        print(f"⏩ Skipping (no pose data): {action.name}")
+        return
+
+    # Setup: Assign original action to play
+    original_action = rig.animation_data.action
+    rig.animation_data.action = action
+
+    # Set up rig for baking
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.ops.object.select_all(action='DESELECT')
+    rig.select_set(True)
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode='POSE')
+
+    # NLA strip to evaluate source animation
+    nla_track = rig.animation_data.nla_tracks.new()
+    nla_track.name = "TempBakeTrack"
+    nla_strip = nla_track.strips.new("TempBakeStrip", start_frame, action)
+    nla_strip.action_frame_start = start_frame
+    nla_strip.action_frame_end = end_frame
+
+    # Bake into temp action
+    with bpy.context.temp_override(**bake_ctx):
         bpy.ops.nla.bake(
             frame_start=start_frame,
             frame_end=end_frame,
             only_selected=True,
-            visual_keying=False,
+            visual_keying=True,
             clear_constraints=False,
-            use_current_action=True,
+            use_current_action=False,  # ➜ Let Blender create a new action
             bake_types={'POSE'},
             step=step
         )
 
-        # 🔹 Em vez de deletar keyframes fora do step,
-        # só garante que handles e frames fiquem consistentes
-        for fcurve in action.fcurves:
-            for kp in fcurve.keyframe_points:
-                kp.co.x = round(kp.co.x)  # só arredonda frame, não toca em valores Y
-                kp.handle_left.x = round(kp.handle_left.x)
-                kp.handle_right.x = round(kp.handle_right.x)
+    # Blender assigns the baked action to the rig after bake
+    baked_action = rig.animation_data.action
 
-        # Ensure loop (skip if suffix matches no_loop_suffixes)
-        if not any(action.name.lower().endswith(suffix) for suffix in no_loop_suffixes):
-            for fcurve in action.fcurves:
-                first_val = fcurve.evaluate(start_frame)
-                fcurve.keyframe_points.insert(end_frame + 1, first_val, options={'FAST'})
-            print(f"Looped: {action.name}")
-        else:
-            print(f"Skipped looping: {action.name}")
+    print(f"♻️ Overwriting: {action.name} using baked data from {baked_action.name}")
 
-        obj.animation_data.action = original_action
-        processed = True
-        break
+    # Overwrite original action with baked data
+    copy_fcurves(baked_action, action)
 
-    if not processed:
-        print(f"Skipped: {action.name} (no suitable rig found)")
+    # Clean original action (now contains baked keyframes)
+    clean_non_step_keyframes(action, step, start_frame, end_frame)
 
-print("✅ All actions baked and looped (without overwriting scaled values).")
+    # Delete temporary baked action
+    bpy.data.actions.remove(baked_action)
+
+    # Restore original state
+    rig.animation_data.nla_tracks.remove(nla_track)
+    rig.animation_data.action = original_action
+
+
+def bake_all_actions_in_place(step=2):
+    bake_ctx = get_view3d_context()
+    if not bake_ctx:
+        print("❌ 3D View context not found. Please open a 3D Viewport.")
+        return
+
+    rigs = [obj for obj in bpy.data.objects if obj.type == 'ARMATURE']
+    if not rigs:
+        print("⚠️ No rigs found in the scene.")
+        return
+
+    for action in bpy.data.actions:
+        processed = False
+        for rig in rigs:
+            if rig.animation_data:
+                try:
+                    bake_action_in_place(action, rig, step, bake_ctx)
+                    processed = True
+                    break
+                except Exception as e:
+                    print(f"❌ Error baking {action.name} on {rig.name}: {e}")
+        if not processed:
+            print(f"⚠️ Skipped: {action.name} (no suitable rig found)")
+
+    print(f"✅ All actions baked in place every {step} frames.")
+
+
+# 🟢 Run it!
+bake_all_actions_in_place(step=2)
